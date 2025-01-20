@@ -1,0 +1,67 @@
+// SPDX-License-Identifier: MIT
+pragma solidity >=0.8.0 <0.9.0;
+
+import "./IBondingCurveMath.sol";
+
+contract BondingCurveMath is IBondingCurveMath {
+
+    function getPrice(uint256 supply, uint256 amount, uint _PRICE_DIVISOR) public pure returns (uint256) {
+        uint256 PRECISION = 1e18;
+        //uint256 PRICE_DIVISOR = 100000000000000;   //100 trillion 
+
+
+        // Consider both full tokens and fractional part of current supply
+        uint256 currentFullTokens = supply / PRECISION;
+        uint256 currentFraction = supply % PRECISION;
+    
+        // Calculate base price for current supply including fraction
+        uint256 currentPrice = currentFullTokens * currentFullTokens * PRECISION / _PRICE_DIVISOR;
+        if (currentFraction > 0) {
+            uint256 nextFullPrice = (currentFullTokens + 1) * (currentFullTokens + 1) * PRECISION / _PRICE_DIVISOR;
+            uint256 fractionContribution = ((nextFullPrice - currentPrice) * currentFraction) / PRECISION;
+            currentPrice += fractionContribution;
+        }
+    
+        // Calculate new total supply and price after purchase
+        uint256 newSupply = supply + amount;
+        uint256 newFullTokens = newSupply / PRECISION;
+        uint256 newFraction = newSupply % PRECISION;
+    
+        uint256 newPrice = newFullTokens * newFullTokens * PRECISION / _PRICE_DIVISOR;
+        if (newFraction > 0) {
+            uint256 nextNewFullPrice = (newFullTokens + 1) * (newFullTokens + 1) * PRECISION / _PRICE_DIVISOR;
+            uint256 newFractionContribution = ((nextNewFullPrice - newPrice) * newFraction) / PRECISION;
+            newPrice += newFractionContribution;
+        }
+    
+        // Return the price difference
+        return newPrice > currentPrice ? newPrice - currentPrice : 0;
+    }
+
+    function getBasePrice(uint256 supply, uint256 amount, uint256 _PRICE_DIVISOR) public pure returns (uint256) {
+        uint256 PRECISION = 1e18;
+    
+        uint256 sum1;
+        if (supply > 0) {
+            uint256 n = supply / PRECISION;
+            if (n > 0) {
+                sum1 = (n - 1) * n * (2 * (n - 1) + 1) / 6;
+                sum1 = sum1 * PRECISION;
+            }
+        }
+    
+        uint256 sum2;
+        uint256 totalSupply = supply + amount;
+        if (totalSupply > 0) {
+            uint256 n = totalSupply / PRECISION;
+            if (n > 0) {
+                sum2 = (n - 1) * n * (2 * (n - 1) + 1) / 6;
+                sum2 = sum2 * PRECISION;
+            }
+        }
+    
+        uint256 summation = sum2 > sum1 ? sum2 - sum1 : 0;
+        return summation / _PRICE_DIVISOR;
+    }
+
+}
